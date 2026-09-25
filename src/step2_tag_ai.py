@@ -1,6 +1,8 @@
 """ステップ2の補助：AIによるタグ統合候補（同義だけ）。
 
 ルールで拾えない同義（グーグル／Google など）をAIに提案させます。
+- AIには候補ごとに関係の種類（製品と会社・法人の違い・別表記 など）を選ばせ、
+  「別表記」だけを同義の候補として残す。すべての判定は 02_tag_ai_judgments.csv に残す
 - 統合先の候補一覧は出現回数2回以上のタグだけ。統合元（対象タグ）は全タグ
 - AIが返したタグ名は候補一覧と完全一致するものだけを採用し、新しいタグ名は作らせない
 - 理由に推測表現があれば捨てる
@@ -20,10 +22,11 @@ SCHEMA = {
                 "type": "object",
                 "properties": {
                     "tag": {"type": "string"},
+                    "relation_kind": {"type": "string", "enum": config.TAG_AI_RELATION_KINDS},
                     "reason": {"type": "string"},
                     "confidence": {"type": "number"},
                 },
-                "required": ["tag", "reason", "confidence"],
+                "required": ["tag", "relation_kind", "reason", "confidence"],
                 "additionalProperties": False,
             },
         }
@@ -56,33 +59,44 @@ def estimate(targets: list[str], system: str, client_model: str) -> tuple[int, i
 
 
 def ai_candidates(client, targets: list[str], tag_list: list[str], counts: Counter,
-                  policy) -> tuple[list[dict], list[str]]:
-    """AIの提案を行にする。戻り値は (候補の行, 捨てた提案の説明)。"""
+                  policy) -> tuple[list[dict], list[dict]]:
+    """AIの提案を行にする。戻り値は (辞書に入れる行, すべての判定の記録)。"""
     system = build_system_prompt(tag_list)
     valid = set(tag_list)
-    rows, rejected, seen = [], [], set()
+    rows, judgments, seen = [], [], set()
     for target in targets:
         result = client.chat_json(target, system, user_prompt(target), SCHEMA)
         if result is None:
             continue  # errors.csv に記録済み
         for m in result["matches"]:
             tag = m["tag"]
-            if tag == target or m["confidence"] < config.TAG_AI_MIN_CONFIDENCE:
+            if tag == target:
                 continue
-            if tag not in valid:
-                rejected.append(f"{target} → {tag}（候補一覧にないタグ名）")
-                continue
-            if re.search(config.TAG_AI_SPECULATION_REGEX, m["reason"]):
-                rejected.append(f"{target} → {tag}（理由に推測表現：{m['reason']}）")
-                continue
-            pair = frozenset([target, tag])
-            if pair in seen:
-                continue  # 逆向きで同じ組がすでに出ている
-            seen.add(pair)
-            row = _to_row(target, tag, m, counts, policy)
-            if row:
-                rows.append(row)
-    return rows, rejected
+            outcome = _judge(target, tag, m, valid, seen, counts, policy, rows)
+            judgments.append({"対象タグ": target, "候補タグ": tag, "関係の種類": m["relation_kind"],
+                              "確信度": m["confidence"], "理由": m["reason"], "結果": outcome})
+    return rows, judgments
+
+
+def _judge(target, tag, m, valid, seen, counts, policy, rows) -> str:
+    """1件の判定を処理し、結果の説明を返す。残すものは rows に追加する。"""
+    if tag not in valid:
+        return "除外：候補一覧にないタグ名"
+    if m["relation_kind"] != config.TAG_AI_KEEP_KIND:
+        return f"除外：{m['relation_kind']}"
+    if m["confidence"] < config.TAG_AI_MIN_CONFIDENCE:
+        return "除外：確信度が低い"
+    if re.search(config.TAG_AI_SPECULATION_REGEX, m["reason"]):
+        return "除外：理由に推測表現"
+    pair = frozenset([target, tag])
+    if pair in seen:
+        return "重複（逆向きで出現済み）"
+    seen.add(pair)
+    row = _to_row(target, tag, m, counts, policy)
+    if row is None:
+        return "表記方針表で統合済み"
+    rows.append(row)
+    return "残す（要確認）"
 
 
 def _to_row(target: str, tag: str, m: dict, counts: Counter, policy) -> dict | None:

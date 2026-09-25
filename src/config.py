@@ -156,3 +156,10 @@ TAG_POLICY_REASON_COL = "方針の理由"
 TAG_AI_CANDIDATE_MIN_COUNT = 2
 # AIの理由にこれらの推測表現があれば、その提案は捨てる
 TAG_AI_SPECULATION_REGEX = r"可能性|かもしれ|思われ|考えられ|ことがある|ことが多い|推測|おそらく"
+
+# AIに選ばせる関係の種類（プロンプト src/prompts/tag_merge.txt と同じ並び）。
+# このうち TAG_AI_KEEP_KIND だけを同義の候補として辞書に残す
+TAG_AI_RELATION_KINDS = ["製品と会社", "法人の違い", "部分と全体・シリーズと回", "上位下位",
+                         "似た概念", "別表記", "その他"]
+TAG_AI_KEEP_KIND = "別表記"
+OUT_TAG_AI_JUDGMENTS = OUTPUTS_DIR / "02_tag_ai_judgments.csv"  # AIの判定をすべて残す（確認用）

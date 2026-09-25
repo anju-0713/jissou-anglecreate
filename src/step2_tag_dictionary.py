@@ -31,7 +31,7 @@ def load_articles() -> tuple[pd.DataFrame, Counter]:
 
 
 def run_ai(counts: Counter, limit: int | None, policy) -> tuple[list[dict], list[str], list[str]]:
-    """AI候補を作る。費用を表示して y の入力を待つ。戻り値は (行, 捨てた提案, ログ)。"""
+    """AI候補を作る。費用を表示して y の入力を待つ。戻り値は (行, 判定の記録, ログ)。"""
     all_tags = step2_tag_rules.representatives(counts, policy)
     targets = all_tags[:limit] if limit else all_tags          # 統合元：全タグ（limit なら上位だけ）
     tag_list = step2_tag_ai.candidate_list(all_tags, counts)   # 統合先の候補：2回以上のタグ
@@ -51,8 +51,8 @@ def run_ai(counts: Counter, limit: int | None, policy) -> tuple[list[dict], list
         print(f"  概算費用: {llm_client.format_cost(usd)}")
         if not llm_client.confirm("AIを実行しますか？"):
             return [], [], ["AI候補: 未実行（y が入力されなかったため）"]
-    rows, rejected = step2_tag_ai.ai_candidates(client, targets, tag_list, counts, policy)
-    return rows, rejected, client.summary_lines()
+    rows, judgments = step2_tag_ai.ai_candidates(client, targets, tag_list, counts, policy)
+    return rows, judgments, client.summary_lines()
 
 
 def build_dictionary(rows: list[dict]) -> pd.DataFrame:
@@ -131,7 +131,7 @@ def main(limit: int | None = None, no_api: bool = False) -> None:
     fixed_counts = step2_tag_rules.apply_char_fix(counts)
     policy_rows = policy.alias_rows(fixed_counts)
     rule_rows = fix_rows + step2_tag_rules.rule_candidates(fixed_counts, policy)
-    ai_rows, rejected, ai_log = (([], [], ["AI候補: 未実行（--no-api）"]) if no_api
+    ai_rows, judgments, ai_log = (([], [], ["AI候補: 未実行（--no-api）"]) if no_api
                                  else run_ai(fixed_counts, limit, policy))
     dictionary = build_dictionary(policy_rows + rule_rows + ai_rows)
     io_utils.write_csv(dictionary, config.TAG_DICT_SUGGESTED_CSV)
@@ -142,12 +142,15 @@ def main(limit: int | None = None, no_api: bool = False) -> None:
     normalized = normalize_articles(articles, merge_map(source, reviewed), policy, status)
     io_utils.write_csv(normalized, config.OUT_TAGS_NORMALIZED)
 
-    step2_report.print_report(dictionary, rejected, articles, normalized, status)
+    judgments = pd.DataFrame(judgments, columns=step2_report.JUDGMENT_COLS)
+    if not no_api:
+        io_utils.write_csv(judgments, config.OUT_TAG_AI_JUDGMENTS)
+    step2_report.print_report(dictionary, judgments, articles, normalized, status)
     before, after = step2_report.tag_stats(articles["tags"]), step2_report.tag_stats(normalized["正規化タグ"])
     io_utils.append_run_log(STEP, [
         f"--limit {limit} / --no-api {no_api}",
         f"候補: policy {len(policy_rows)} 行 / rule {len(rule_rows)} 行 / ai {len(ai_rows)} 行"
-        f" / 捨てたAI提案 {len(rejected)} 件",
+        f" / AI判定 {len(judgments)} 件",
         f"正規化: {status} / タグ種類 {before[0]} → {after[0]} / 1回きり {before[1]} → {after[1]}",
         *ai_log,
         f"所要時間: {time.time() - start:.1f} 秒",

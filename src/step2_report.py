@@ -5,6 +5,9 @@ import pandas as pd
 
 from src import config
 
+# AIの判定の記録（02_tag_ai_judgments.csv）の列
+JUDGMENT_COLS = ["対象タグ", "候補タグ", "関係の種類", "確信度", "理由", "結果"]
+
 
 def tag_stats(tag_series: pd.Series) -> tuple[int, int]:
     """(タグ種類数, 1回きりタグ数)。"""
@@ -17,7 +20,7 @@ def _show(df: pd.DataFrame, cols: list[str]) -> None:
         print(df[cols].to_string(index=False))
 
 
-def print_report(dictionary: pd.DataFrame, rejected: list[str], articles: pd.DataFrame,
+def print_report(dictionary: pd.DataFrame, judgments: pd.DataFrame, articles: pd.DataFrame,
                  normalized: pd.DataFrame, status: str) -> None:
     """候補の件数・中身と、正規化前後のタグ数を表示する。"""
     print(f"\n出力: {config.TAG_DICT_SUGGESTED_CSV.name}（{len(dictionary)} 行）")
@@ -30,14 +33,13 @@ def print_report(dictionary: pd.DataFrame, rejected: list[str], articles: pd.Dat
             print(f"\n--- {title} ---")
             _show(part, ["元タグ", "出現回数", "提案_統合後タグ", "relation_type", "理由"])
 
+    if len(judgments):
+        print(f"\n--- AIの判定（すべて。{config.OUT_TAG_AI_JUDGMENTS.name}） ---")
+        _show(judgments, ["対象タグ", "候補タグ", "関係の種類", "確信度", "結果", "理由"])
     ai = dictionary[dictionary["提案元"] == "ai"]
+    print(f"\n--- AIによる候補（辞書に残った行：{len(ai)} 行） ---")
     if len(ai):
-        print("\n--- AIによる候補 ---")
         _show(ai, ["元タグ", "出現回数", "提案_統合後タグ", "確信度", "理由"])
-    if rejected:
-        print("\n--- 捨てたAI提案 ---")
-        for r in rejected:
-            print("  " + r)
 
     before, after = tag_stats(articles["tags"]), tag_stats(normalized["正規化タグ"])
     print(f"\n正規化タグ（{status}）: {config.OUT_TAGS_NORMALIZED.name}")

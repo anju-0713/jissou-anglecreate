@@ -80,6 +80,21 @@ def write_text(text: str, path: Path) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")  # 改行はLFのまま
 
 
+def append_error(step: str, target: str, message: str) -> None:
+    """失敗した処理を outputs/errors.csv に1行追記する（処理自体は続行する）。"""
+    row = pd.DataFrame([{
+        "日時": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "step": step, "対象": target, "エラー": message,
+    }])
+    path = config.OUT_ERRORS
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        # 追記時はBOMを付けない（ファイル先頭にだけBOMがあればよい）
+        row.to_csv(path, mode="a", header=False, index=False, encoding="utf-8")
+    else:
+        row.to_csv(path, index=False, encoding=config.WRITE_ENCODING)
+
+
 def append_run_log(step: str, lines: list[str]) -> None:
     """outputs/run_log.txt に実行ログを追記する。"""
     config.RUN_LOG.parent.mkdir(parents=True, exist_ok=True)

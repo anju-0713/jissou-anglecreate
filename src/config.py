@@ -112,3 +112,47 @@ EXPECTED = {
     "body_files": 12,
     "body_with_ads": 10,
 }
+
+# ---------------------------------------------------------------
+# OpenAI（llm_client.py）
+# ---------------------------------------------------------------
+DEFAULT_MODEL = "gpt-4o-mini"   # .env の OPENAI_MODEL が優先
+LLM_TEMPERATURE = 0
+LLM_MAX_RETRIES = 3             # 失敗時の再試行回数
+LLM_RETRY_WAIT_SEC = 5          # 再試行までの待ち時間（回数に比例して延ばす）
+# 料金（米ドル / 100万トークン）。モデルを変えたらここも更新する
+MODEL_PRICES_USD = {
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+}
+USD_JPY = 150                   # 概算費用の円換算レート
+# 概算トークン数：日本語混じりの文は「1文字≒1トークン」で多めに見積もる
+EST_TOKENS_PER_CHAR = 1.0
+OUT_ERRORS = OUTPUTS_DIR / "errors.csv"
+
+# ---------------------------------------------------------------
+# ステップ2：タグ辞書
+# ---------------------------------------------------------------
+# ルールで同一とみなす違い（NFKC・大文字小文字のほかに）
+TAG_RULE_REMOVE_CHARS = r"[\s・･·]"           # 空白と「・」は無視して比べる
+TAG_RULE_HYPHENS = "‐‑‒–—―−－"                # ハイフンの字形違いは「-」にそろえて比べる
+# 部首用の文字などの特殊文字 → 通常の文字（NFKCでも直らないもの）。見つかったら追加する
+TAG_CHAR_FIX = {
+    "⻄": "西",  # 部首用の「⻄」（CJK RADICAL WEST TWO）→ 通常の「西」（見た目が同じなのでコードで書く）
+}
+TAG_AI_OUTPUT_TOKENS = 300                    # 1回の応答トークン数の見込み（費用見積もり用）
+TAG_AI_MIN_CONFIDENCE = 0.0                   # これ未満のAI提案は捨てる（0なら全部残す）
+
+TAG_DICT_SUGGESTED_CSV = OUTPUTS_DIR / "02_tag_dictionary_suggested.csv"
+TAG_DICT_REVIEWED_CSV = MANUAL_DIR / "tag_dictionary_reviewed.csv"
+OUT_TAGS_NORMALIZED = OUTPUTS_DIR / "02_articles_tags_normalized.csv"
+
+# 表記方針表（統合後の表記を人が決める表。統合のときはこの表を最優先する）
+TAG_POLICY_CSV = MANUAL_DIR / "tag_canonical_policy.csv"
+TAG_POLICY_CANON_COL = "統合後タグ"
+TAG_POLICY_ALIAS_COL = "別名（/区切り）"
+TAG_POLICY_REASON_COL = "方針の理由"
+
+# AIに渡す統合先の候補は、出現回数がこの回数以上のタグだけ（統合元は全タグ）
+TAG_AI_CANDIDATE_MIN_COUNT = 2
+# AIの理由にこれらの推測表現があれば、その提案は捨てる
+TAG_AI_SPECULATION_REGEX = r"可能性|かもしれ|思われ|考えられ|ことがある|ことが多い|推測|おそらく"

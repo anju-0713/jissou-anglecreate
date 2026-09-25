@@ -6,6 +6,10 @@
 __pycache__/
 
 # 提供データ・出力・APIキャッシュ（Gitで管理しない）
-data/
+# ※ data/manual/tag_canonical_policy.csv（表記方針表）だけは人が決めた設定なので管理する
+data/*
+!data/manual/
+data/manual/*
+!data/manual/tag_canonical_policy.csv
 outputs/
 cache/

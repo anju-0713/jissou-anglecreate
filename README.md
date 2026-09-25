@@ -79,3 +79,33 @@ python -m src.step1_load_clean
 2. 正しい url を「確定url(人が記入)」列に書く
 3. `data/manual/body_mapping_reviewed.csv` という名前で保存する
 4. ステップ1を再実行すると、確認済みの対応が使われる（`body_mapping_status=確定`）
+
+## ステップ2：タグ辞書
+
+```bash
+python run_pipeline.py --step 2 --no-api     # 表記方針表とルールだけ（APIなし）
+python run_pipeline.py --step 2 --limit 10   # AIは出現回数の上位10タグだけ試す
+python run_pipeline.py --step 2              # AIを全タグで実行
+```
+
+AIを使うときは、実行前に概算費用が表示され、`y` を入力したときだけ実行します。
+応答は `cache/` に保存され、同じ入力なら再実行しても課金されません。
+
+### 統合の優先順位
+
+1. **表記方針表** `data/manual/tag_canonical_policy.csv`（人が決める。Gitで管理）
+   - 列：`統合後タグ, 別名（/区切り）, 方針の理由`
+   - 例：`Google, グーグル` → グーグルは Google に統合
+2. **ルール**（提案元=rule）：特殊文字の表記修正、NFKC・大文字小文字・ハイフンの字形・空白・「・」の違い
+3. **AI**（提案元=ai）：同義だけ。統合先の候補は出現2回以上のタグ
+
+### 出力と確認の手順
+
+| ファイル | 内容 |
+|---|---|
+| outputs/02_tag_dictionary_suggested.csv | 統合候補（提案） |
+| outputs/02_articles_tags_normalized.csv | 記事ごとの正規化タグ |
+
+1. `02_tag_dictionary_suggested.csv` の「採用(Y/N・人が記入)」に Y か N を書く（統合後を変えたいときは「修正後タグ(人が記入)」に書く）
+2. `data/manual/tag_dictionary_reviewed.csv` として保存して再実行する
+3. reviewed がない間は「提案ベース（未確認）」として、表記方針表と rule の行だけを当てはめる（AIの行は当てはめない）

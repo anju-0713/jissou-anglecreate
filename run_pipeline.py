@@ -9,7 +9,7 @@
 import argparse
 
 from src import (io_utils, step1_load_clean, step2_tag_dictionary, step3_reclassify,
-                 step4_time_expressions, step5_metrics)
+                 step4_time_expressions, step5_metrics, step6_export)
 
 # ステップ番号 → 実行する関数（フェーズ2以降で追加していく）
 STEPS = {
@@ -18,6 +18,7 @@ STEPS = {
     3: step3_reclassify.main,
     4: step4_time_expressions.main,
     5: step5_metrics.main,
+    6: step6_export.main,
 }
 
 

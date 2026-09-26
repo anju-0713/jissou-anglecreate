@@ -143,3 +143,23 @@ python run_pipeline.py --step 5
 - After(b) のカテゴリは `data/manual/reclassification_reviewed.csv`（列：`url, 確定_業界, 確定_テーマ`）があるときだけ出る
 - タグ整理の成果は「1回きりの割合」ではなく「表記ゆれを解消した組数」で見る
 - 出力：`outputs/05_metrics_before_after.csv`、`outputs/05_metrics_summary.md`（提案書P13用、計算方法と注記つき）
+
+## ステップ6：エクスポート
+
+```bash
+python run_pipeline.py --step 6            # 本文のある記事の要約をAIで作って出力
+python run_pipeline.py --step 6 --no-api   # 要約は保存済み（06_summaries.csv）を使う
+```
+
+| ファイル | 用途 |
+|---|---|
+| outputs/dify_knowledge_articles.csv | **Difyのナレッジに入れる**（1行1記事） |
+| outputs/dify_knowledge_articles.md | **Difyのナレッジに入れる**（1記事1ブロックのMarkdown。CSVと同じ内容） |
+| outputs/dashboard_articles.csv | Looker Studio 用（1行1記事） |
+| outputs/dashboard_category_long.csv | Looker Studio 用（1行＝記事×カテゴリ。Before/After 列つき） |
+| outputs/06_summaries.csv | 要約の確認用（要確認の理由つき） |
+
+- 要約は本文がある記事だけ。ない記事は要約を空欄にして「本文未取得」と記す（タイトルから要約は作らない）
+- 別名があるタグは「Google（グーグル）」の形で出す（表記方針表による）
+- 業界・テーマは、人の確定 → AI提案（未確認）→ 元データ の順で使い、「分類の状態」列に書く
+- 要約はAIの下書き（未確認）。数字・英字が本文にあるかはコードで確認するが、意味の取り違えは人が確認する

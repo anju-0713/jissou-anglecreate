@@ -181,6 +181,16 @@ OUT_RECLASSIFICATION = OUTPUTS_DIR / "03_reclassification.csv"
 OUT_TRIAL10_REPORT = OUTPUTS_DIR / "03_trial10_report.md"
 OUT_TRIAL20_REPORT = OUTPUTS_DIR / "03_trial20_report.md"
 
+# ステップ6：エクスポート
+SUMMARY_BODY_CHARS = 6000        # 要約のために渡す本文の最大文字数
+SUMMARY_MIN_CHARS, SUMMARY_MAX_CHARS = 100, 200   # 要約の文字数がこの範囲外なら要確認
+SUMMARY_OUTPUT_TOKENS = 300      # 1回の応答トークン数の見込み（費用見積もり用）
+OUT_SUMMARIES = OUTPUTS_DIR / "06_summaries.csv"
+OUT_DIFY_CSV = OUTPUTS_DIR / "dify_knowledge_articles.csv"
+OUT_DIFY_MD = OUTPUTS_DIR / "dify_knowledge_articles.md"
+OUT_DASH_ARTICLES = OUTPUTS_DIR / "dashboard_articles.csv"
+OUT_DASH_LONG = OUTPUTS_DIR / "dashboard_category_long.csv"
+
 # ステップ5：Before/After 指標
 OUT_METRICS_CSV = OUTPUTS_DIR / "05_metrics_before_after.csv"
 OUT_METRICS_MD = OUTPUTS_DIR / "05_metrics_summary.md"

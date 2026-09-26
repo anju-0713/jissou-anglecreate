@@ -166,3 +166,16 @@ TAG_AI_RELATION_KINDS = ["製品と会社", "法人の違い", "部分と全体�
                          "似た概念", "別表記", "その他"]
 TAG_AI_KEEP_KIND = "別表記"
 OUT_TAG_AI_JUDGMENTS = OUTPUTS_DIR / "02_tag_ai_judgments.csv"  # AIの判定をすべて残す（確認用）
+
+# ---------------------------------------------------------------
+# ステップ3：業界・テーマの再分類
+# ---------------------------------------------------------------
+RECLASSIFY_BODY_CHARS = 1500          # 本文がある記事は冒頭この文字数だけAIに渡す
+RECLASSIFY_CONFIDENCE_MIN = 0.7       # 確信度（AIの自己申告）がこれ未満なら要確認
+RECLASSIFY_OUTPUT_TOKENS = 250        # 1回の応答トークン数の見込み（費用見積もり用）
+# --limit 10 の試し実行で必ず含める記事（J-Moshi・ベビーカー・はま寿司・VPP）
+TRIAL_REQUIRED_IDS = ["390973", "391258", "390369", "389541"]
+# 推測表現のフィルタはステップ2と同じものを使う（config.TAG_AI_SPECULATION_REGEX）
+
+OUT_RECLASSIFICATION = OUTPUTS_DIR / "03_reclassification.csv"
+OUT_TRIAL10_REPORT = OUTPUTS_DIR / "03_trial10_report.md"

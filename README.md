@@ -109,3 +109,15 @@ AIを使うときは、実行前に概算費用が表示され、`y` を入力�
 1. `02_tag_dictionary_suggested.csv` の「採用(Y/N・人が記入)」に Y か N を書く（統合後を変えたいときは「修正後タグ(人が記入)」に書く）
 2. `data/manual/tag_dictionary_reviewed.csv` として保存して再実行する
 3. reviewed がない間は「提案ベース（未確認）」として、表記方針表と rule の行だけを当てはめる（AIの行は当てはめない）
+
+## ステップ3：業界・テーマの再分類（API）
+
+```bash
+python run_pipeline.py --step 3 --limit 10   # 試し実行（J-Moshi・ベビーカー・はま寿司・VPPを含む10本）
+python run_pipeline.py --step 3              # 全件
+```
+
+- AIの選択肢はマスタのカテゴリ名に固定（「その他」はなし）。業界・テーマとも主1つ＋副は最大1つ
+- 当てはまらない場合だけ主を空にし、新カテゴリ候補を出す
+- 根拠語がタイトル・タグ・本文冒頭にあるかをコードで照合。推測表現の根拠は提案ごと除外
+- 出力：`outputs/03_reclassification.csv`（確定_業界・確定_テーマは人が記入）、試し実行は `outputs/03_trial10_report.md`

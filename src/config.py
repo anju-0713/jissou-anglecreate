@@ -180,6 +180,12 @@ TRIAL_REQUIRED_IDS = ["390973", "391258", "390369", "389541"]
 OUT_RECLASSIFICATION = OUTPUTS_DIR / "03_reclassification.csv"
 OUT_TRIAL10_REPORT = OUTPUTS_DIR / "03_trial10_report.md"
 OUT_TRIAL20_REPORT = OUTPUTS_DIR / "03_trial20_report.md"
+
+# ステップ5：Before/After 指標
+OUT_METRICS_CSV = OUTPUTS_DIR / "05_metrics_before_after.csv"
+OUT_METRICS_MD = OUTPUTS_DIR / "05_metrics_summary.md"
+# 人が確認した再分類（列: url, 確定_業界, 確定_テーマ）。あれば After(b) を出す
+CATEGORY_REVIEWED_CSV = MANUAL_DIR / "reclassification_reviewed.csv"
 TRIAL_EXTRA_BODY_COUNT = 3   # --limit 20 で足す10本のうち、本文がある記事の数
 TRIAL_EXTRA_SEED = 42        # 残りは、この値で固定した乱数で選ぶ（毎回同じ記事になる）
 

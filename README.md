@@ -132,3 +132,14 @@ python run_pipeline.py --step 4
 - 解釈案は公開日がある場合だけ（例：年内 → 2025年内）。「今年度」は4月始まりと仮定、「今期・来期」は決算期が不明なので空欄
 - 公開日がない記事（J-Moshi など）は解釈案を空欄にし、「★公開日欠損のため解釈不可」として先頭に並べる
 - 出力：`outputs/04_time_expressions.csv`（要更新は人が記入）
+
+## ステップ5：Before/After 指標（APIなし）
+
+```bash
+python run_pipeline.py --step 5
+```
+
+- Before＝元データ、After(a)＝AI提案ベース（未確認）、After(b)＝人の確認後（reviewed がある場合のみ）
+- After(b) のカテゴリは `data/manual/reclassification_reviewed.csv`（列：`url, 確定_業界, 確定_テーマ`）があるときだけ出る
+- タグ整理の成果は「1回きりの割合」ではなく「表記ゆれを解消した組数」で見る
+- 出力：`outputs/05_metrics_before_after.csv`、`outputs/05_metrics_summary.md`（提案書P13用、計算方法と注記つき）

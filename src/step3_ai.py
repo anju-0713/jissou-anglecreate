@@ -2,9 +2,10 @@
 
 - 選択肢（enum）はマスタのカテゴリ名に固定。「その他」は入れない
 - 根拠語がタイトル・タグ・本文冒頭に本当にあるかをコードで確かめる
-- 根拠に推測表現があれば提案を除外する（ステップ2と同じフィルタ）
+- 根拠に推測表現があれば、提案は残して根拠を空欄にし「要確認」にする（フィルタはステップ2と同じ）
 - matched_keywords（選んだカテゴリの説明・主要キーワードのうち当てはまった語）がマスタにない場合は、
-  提案は残したまま「要確認」にする（正しい分類まで落とさないため）
+  提案は残したまま「要確認」にする。AIの語にマスタの語が含まれる（またはその逆）場合は一致とみなす
+- その軸に新カテゴリ候補がある場合は、マスタのカテゴリを採用しない（空にする）
 """
 import re
 import unicodedata
@@ -68,17 +69,29 @@ def _norm(text: str) -> str:
     return unicodedata.normalize("NFKC", text).casefold()
 
 
+def _master_tokens(label: str, chosen: list, masters: dict[str, pd.DataFrame]) -> tuple[str, list[str]]:
+    """選んだカテゴリの説明・主要キーワードの全文と、語に区切ったリスト（2文字以上）。"""
+    m = masters[label]
+    rows = m[m["カテゴリ名"].isin(chosen)]
+    text = _norm(" ".join(f"{r['説明']} {r['主要キーワード']}" for _, r in rows.iterrows()))
+    tokens = [t for t in re.split(r"[、,，／/\s]+", text) if len(t) >= 2]
+    return text, tokens
+
+
 def _check_keywords(label: str, chosen: list, matched: list[str],
                     masters: dict[str, pd.DataFrame]) -> list[str]:
-    """matched_keywords が、選んだカテゴリのマスタの説明・主要キーワードにあるかを確かめる。"""
+    """matched_keywords が、選んだカテゴリのマスタの説明・主要キーワードと一致するかを確かめる。
+
+    一致とみなすのは、AIの語がマスタの文に含まれる場合、またはマスタの語がAIの語に含まれる場合
+    （例：AIの「回転寿司」とマスタの「寿司」）。
+    """
     chosen = [c for c in chosen if c]
     if not chosen:
         return []
     if not matched:
         return [f"{label}：照合語(matched_keywords)がない"]
-    m = masters[label]
-    text = _norm(" ".join(f"{r['説明']} {r['主要キーワード']}" for _, r in m[m["カテゴリ名"].isin(chosen)].iterrows()))
-    bad = [w for w in matched if _norm(w) not in text]
+    text, tokens = _master_tokens(label, chosen, masters)
+    bad = [w for w in matched if _norm(w) not in text and not any(t in _norm(w) for t in tokens)]
     return [f"{label}：照合語がマスタにない（{'、'.join(bad)}）"] if bad else []
 
 
@@ -88,13 +101,18 @@ def check_result(result: dict | None, source_text: str, original: dict[str, list
     if result is None:
         return {"flags": ["API失敗（errors.csv を参照）"], "excluded": True}
     flags = []
-    # 推測表現は除外。ただし「示唆」がタイトル・タグ・本文にそのまま出ている場合は、記事の内容の説明なので除外しない
-    hits = set(re.findall(config.TAG_AI_SPECULATION_REGEX, result["reason"]))
+    reason = result["reason"]
+    # 推測表現がある場合は、提案は残して根拠を空欄にし、要確認にする。
+    # ただし「示唆」がタイトル・タグ・本文にそのまま出ている場合は、記事の内容の説明なので推測とみなさない
+    hits = set(re.findall(config.TAG_AI_SPECULATION_REGEX, reason))
     if "示唆" in hits and "示唆" in source_text:
         hits.discard("示唆")
     if hits:
-        return {"flags": [f"根拠に推測表現のため提案を除外（{result['reason']}）"], "excluded": True}
+        flags.append("根拠に推測表現があるため根拠を空欄にした（提案は残す）")
+        reason = ""
 
+    candidates = [c for c in result["new_category_candidates"]
+                  if c["name"] != config.OTHER_LABEL and c["name"] not in set(masters[c["axis"]]["カテゴリ名"])]
     picked = {}
     for label, key in AXES.items():
         main, sub = result[f"{key}_main"], result[f"{key}_sub"]
@@ -103,24 +121,27 @@ def check_result(result: dict | None, source_text: str, original: dict[str, list
         if main is None and sub is not None:
             flags.append(f"{label}：主なしで副あり（副は使わない）")
             sub = None
+        if any(c["axis"] == label for c in candidates):
+            # 新カテゴリ候補がある軸は、マスタのカテゴリを採用しない
+            if main or sub:
+                flags.append(f"{label}：新カテゴリ候補があるためマスタのカテゴリ"
+                             f"（{'、'.join(x for x in (main, sub) if x)}）は採用しない")
+            main = sub = None
         picked[label] = (main, sub)
         flags += _check_keywords(label, [main, sub], result[f"{key}_matched_keywords"], masters)
-        cands = [c for c in result["new_category_candidates"] if c["axis"] == label]
-        if main is None and not cands:
+        if main is None and not any(c["axis"] == label for c in candidates):
             flags.append(f"{label}：主カテゴリも新カテゴリ候補もない")
         if main is not None and main not in original[label]:
             flags.append(f"{label}：元と主カテゴリが異なる")
 
-    cands = [c for c in result["new_category_candidates"]
-             if c["name"] != config.OTHER_LABEL and c["name"] not in set(masters[c["axis"]]["カテゴリ名"])]
-    if cands:
+    if candidates:
         flags.append("新カテゴリ候補あり")
     if result["confidence"] < config.RECLASSIFY_CONFIDENCE_MIN:
         flags.append(f"確信度が{config.RECLASSIFY_CONFIDENCE_MIN}未満")
     missing = [w for w in result["evidence_words"] if _norm(w) not in _norm(source_text)]
     if missing:
         flags.append("根拠語が入力にない：" + "、".join(missing))
-    matched = {label: result[f"{key}_matched_keywords"] for label, key in AXES.items()}
-    return {"picked": picked, "candidates": cands, "flags": flags, "excluded": False,
-            "confidence": result["confidence"], "reason": result["reason"],
+    matched = {label: result[f"{key}_matched_keywords"] if picked[label][0] else [] for label, key in AXES.items()}
+    return {"picked": picked, "candidates": candidates, "flags": flags, "excluded": False,
+            "confidence": result["confidence"], "reason": reason,
             "evidence": result["evidence_words"], "matched": matched}

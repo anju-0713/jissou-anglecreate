@@ -15,7 +15,7 @@ def _cell(text) -> str:
 def write_trial_report(df: pd.DataFrame, path: Path) -> None:
     """元の分類と提案の比較表を Markdown で保存する。"""
     lines = [
-        "# ステップ3 試し実行（10本）：元の分類と提案の比較",
+        f"# ステップ3 試し実行（{len(df)}本）：元の分類と提案の比較",
         "",
         f"作成：{datetime.now():%Y-%m-%d %H:%M}　※提案はすべてAIによるもので未確認です。確信度はAIの自己申告です。",
         "",

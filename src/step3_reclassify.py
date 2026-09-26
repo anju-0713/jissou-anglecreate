@@ -2,6 +2,7 @@
 
 実行方法（Git Bash、プロジェクトのルートで）:
     python -m src.step3_reclassify --limit 10   # 試し実行（J-Moshi・ベビーカー・はま寿司・VPPを含む10本）
+    python -m src.step3_reclassify --limit 20   # 上の10本＋まだ試していない10本
     python -m src.step3_reclassify              # 全件
 出力はすべて「提案」です。確定_業界・確定_テーマは人が記入します。
 """
@@ -37,8 +38,8 @@ def load_inputs() -> pd.DataFrame:
     return df
 
 
-def select_trial(df: pd.DataFrame, n: int) -> pd.DataFrame:
-    """試し実行の記事：必須の4本＋「その他」が両方の記事＋テーマ3つ以上の記事（新しい順）。"""
+def _select_first10(df: pd.DataFrame, n: int) -> pd.DataFrame:
+    """最初の試し記事：必須の4本＋「その他」が両方の記事＋テーマ3つ以上の記事（新しい順）。"""
     required = df[df["article_id"].isin(config.TRIAL_REQUIRED_IDS)]
     missing = set(config.TRIAL_REQUIRED_IDS) - set(required["article_id"])
     if missing:
@@ -49,6 +50,21 @@ def select_trial(df: pd.DataFrame, n: int) -> pd.DataFrame:
     many = rest[(rest["テーマ数"].astype(int) >= 3) & ~rest.index.isin(other.index)]
     picked = pd.concat([required, other.head(k), many.head(n - len(required) - k)])
     return picked.head(n)
+
+
+def select_trial(df: pd.DataFrame, n: int) -> pd.DataFrame:
+    """試し実行の記事。n が10を超えるときは、最初の10本に「まだ試していない記事」を足す。
+
+    足す記事：本文がある記事を config.TRIAL_EXTRA_BODY_COUNT 本、残りは固定の乱数で選ぶ（毎回同じ）。
+    """
+    first = _select_first10(df, min(n, 10))
+    if n <= 10:
+        return first
+    rest = df[~df.index.isin(first.index)]
+    with_body = rest[rest["has_body"] == "True"].sample(config.TRIAL_EXTRA_BODY_COUNT, random_state=config.TRIAL_EXTRA_SEED)
+    others = rest[~rest.index.isin(with_body.index)].sample(n - len(first) - len(with_body),
+                                                            random_state=config.TRIAL_EXTRA_SEED)
+    return pd.concat([first, with_body, others])
 
 
 def to_row(a: pd.Series, checked: dict) -> dict:
@@ -111,7 +127,8 @@ def main(limit: int | None = None, no_api: bool = False) -> None:
     out = pd.DataFrame(rows)
     io_utils.write_csv(out, config.OUT_RECLASSIFICATION)
     if limit:
-        step3_report.write_trial_report(out, config.OUT_TRIAL10_REPORT)
+        step3_report.write_trial_report(
+            out, config.OUT_TRIAL20_REPORT if limit > 10 else config.OUT_TRIAL10_REPORT)
     step3_report.print_summary(out)
     io_utils.append_run_log(STEP, [
         f"--limit {limit} / 対象 {len(out)} 本 / 要確認 {(out['要確認フラグ'] == '要確認').sum()} 本",

@@ -179,6 +179,9 @@ TRIAL_REQUIRED_IDS = ["390973", "391258", "390369", "389541"]
 
 OUT_RECLASSIFICATION = OUTPUTS_DIR / "03_reclassification.csv"
 OUT_TRIAL10_REPORT = OUTPUTS_DIR / "03_trial10_report.md"
+OUT_TRIAL20_REPORT = OUTPUTS_DIR / "03_trial20_report.md"
+TRIAL_EXTRA_BODY_COUNT = 3   # --limit 20 で足す10本のうち、本文がある記事の数
+TRIAL_EXTRA_SEED = 42        # 残りは、この値で固定した乱数で選ぶ（毎回同じ記事になる）
 
 # ---------------------------------------------------------------
 # ステップ4：時点表現の検出（APIなし・正規表現）

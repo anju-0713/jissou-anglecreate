@@ -71,7 +71,11 @@ def check_result(result: dict | None, source_text: str, original: dict[str, list
     if result is None:
         return {"flags": ["API失敗（errors.csv を参照）"], "excluded": True}
     flags = []
-    if re.search(config.TAG_AI_SPECULATION_REGEX, result["reason"]):
+    # 推測表現は除外。ただし「示唆」がタイトル・タグ・本文にそのまま出ている場合は、記事の内容の説明なので除外しない
+    hits = set(re.findall(config.TAG_AI_SPECULATION_REGEX, result["reason"]))
+    if "示唆" in hits and "示唆" in source_text:
+        hits.discard("示唆")
+    if hits:
         return {"flags": [f"根拠に推測表現のため提案を除外（{result['reason']}）"], "excluded": True}
 
     picked = {}

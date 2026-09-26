@@ -3,6 +3,8 @@
 - 選択肢（enum）はマスタのカテゴリ名に固定。「その他」は入れない
 - 根拠語がタイトル・タグ・本文冒頭に本当にあるかをコードで確かめる
 - 根拠に推測表現があれば提案を除外する（ステップ2と同じフィルタ）
+- matched_keywords（選んだカテゴリの説明・主要キーワードのうち当てはまった語）がマスタにない場合は、
+  提案は残したまま「要確認」にする（正しい分類まで落とさないため）
 """
 import re
 import unicodedata
@@ -39,6 +41,7 @@ def build_schema(masters: dict[str, pd.DataFrame]) -> dict:
     for label, key in AXES.items():
         props[f"{key}_main"] = nullable(label)
         props[f"{key}_sub"] = nullable(label)
+        props[f"{key}_matched_keywords"] = {"type": "array", "items": {"type": "string"}}
     props["new_category_candidates"] = {"type": "array", "items": {
         "type": "object",
         "properties": {"axis": {"type": "string", "enum": list(AXES)},
@@ -65,6 +68,20 @@ def _norm(text: str) -> str:
     return unicodedata.normalize("NFKC", text).casefold()
 
 
+def _check_keywords(label: str, chosen: list, matched: list[str],
+                    masters: dict[str, pd.DataFrame]) -> list[str]:
+    """matched_keywords が、選んだカテゴリのマスタの説明・主要キーワードにあるかを確かめる。"""
+    chosen = [c for c in chosen if c]
+    if not chosen:
+        return []
+    if not matched:
+        return [f"{label}：照合語(matched_keywords)がない"]
+    m = masters[label]
+    text = _norm(" ".join(f"{r['説明']} {r['主要キーワード']}" for _, r in m[m["カテゴリ名"].isin(chosen)].iterrows()))
+    bad = [w for w in matched if _norm(w) not in text]
+    return [f"{label}：照合語がマスタにない（{'、'.join(bad)}）"] if bad else []
+
+
 def check_result(result: dict | None, source_text: str, original: dict[str, list[str]],
                  masters: dict[str, pd.DataFrame]) -> dict:
     """AIの応答を検証し、提案と要確認の理由をまとめる。"""
@@ -87,6 +104,7 @@ def check_result(result: dict | None, source_text: str, original: dict[str, list
             flags.append(f"{label}：主なしで副あり（副は使わない）")
             sub = None
         picked[label] = (main, sub)
+        flags += _check_keywords(label, [main, sub], result[f"{key}_matched_keywords"], masters)
         cands = [c for c in result["new_category_candidates"] if c["axis"] == label]
         if main is None and not cands:
             flags.append(f"{label}：主カテゴリも新カテゴリ候補もない")
@@ -102,6 +120,7 @@ def check_result(result: dict | None, source_text: str, original: dict[str, list
     missing = [w for w in result["evidence_words"] if _norm(w) not in _norm(source_text)]
     if missing:
         flags.append("根拠語が入力にない：" + "、".join(missing))
+    matched = {label: result[f"{key}_matched_keywords"] for label, key in AXES.items()}
     return {"picked": picked, "candidates": cands, "flags": flags, "excluded": False,
             "confidence": result["confidence"], "reason": result["reason"],
-            "evidence": result["evidence_words"]}
+            "evidence": result["evidence_words"], "matched": matched}

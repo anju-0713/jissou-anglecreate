@@ -67,6 +67,8 @@ def to_row(a: pd.Series, checked: dict) -> dict:
     row["確信度(AI自己申告)"] = checked.get("confidence", "") if ok else ""
     row["根拠"] = checked.get("reason", "") if ok else ""
     row["根拠語"] = " / ".join(checked.get("evidence", [])) if ok else ""
+    for label in ["業界", "テーマ"]:
+        row[f"照合語_{label}"] = " / ".join(checked["matched"][label]) if ok else ""
     changed = ok and any(set(split_categories(row[f"提案_{lb}"])) != set(orig[lb]) for lb in orig)
     row["変更有無"] = ("変更あり" if changed else "変更なし") if ok else ""
     row["要確認フラグ"] = "要確認" if checked["flags"] else ""

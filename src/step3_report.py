@@ -36,6 +36,7 @@ def write_trial_report(df: pd.DataFrame, path: Path) -> None:
             f"- 新カテゴリ候補：{r['新カテゴリ候補'] or 'なし'}",
             f"- 根拠：{r['根拠']}",
             f"- 根拠語：{r['根拠語']}",
+            f"- マスタとの照合語：業界「{r['照合語_業界']}」／テーマ「{r['照合語_テーマ']}」",
             f"- 要確認：{r['要確認理由'] or 'なし'}",
             "",
         ]
@@ -52,7 +53,8 @@ def print_summary(df: pd.DataFrame) -> None:
     reasons = df["要確認理由"].str.split(" / ").explode()
     # 語の一覧や理由の本文は件数集計では落とす
     reasons = (reasons[reasons != ""].str.replace(r"^(根拠語が入力にない)：.*$", r"\1", regex=True)
-               .str.replace(r"^(根拠に推測表現のため提案を除外)（.*$", r"\1", regex=True))
+               .str.replace(r"^(根拠に推測表現のため提案を除外)（.*$", r"\1", regex=True)
+               .str.replace(r"^(業界|テーマ)：(照合語がマスタにない)（.*$", r"\1：\2", regex=True))
     if len(reasons):
         print("  要確認の内訳:")
         for k, v in reasons.value_counts().items():

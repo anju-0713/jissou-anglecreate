@@ -120,6 +120,9 @@ DEFAULT_MODEL = "gpt-4o-mini"   # .env の OPENAI_MODEL が優先
 LLM_TEMPERATURE = 0
 LLM_MAX_RETRIES = 3             # 失敗時の再試行回数
 LLM_RETRY_WAIT_SEC = 5          # 再試行までの待ち時間（回数に比例して延ばす）
+LLM_WORKERS = 5                 # 同時に送る件数（並列実行）
+LLM_RATE_LIMIT_MAX_RETRIES = 6  # レート制限（429）のときの再試行回数（通常の3回とは別に数える）
+LLM_RATE_LIMIT_WAIT_SEC = 10    # レート制限のときの待ち時間（回数に比例して延ばす）
 # 料金（米ドル / 100万トークン）。モデルを変えたらここも更新する
 MODEL_PRICES_USD = {
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
@@ -155,7 +158,7 @@ TAG_POLICY_REASON_COL = "方針の理由"
 # AIに渡す統合先の候補は、出現回数がこの回数以上のタグだけ（統合元は全タグ）
 TAG_AI_CANDIDATE_MIN_COUNT = 2
 # AIの理由にこれらの推測表現があれば、その提案は捨てる
-TAG_AI_SPECULATION_REGEX = r"可能性|かもしれ|思われ|考えられ|ことがある|ことが多い|推測|おそらく"
+TAG_AI_SPECULATION_REGEX = r"可能性|かもしれ|思われ|考えられ|ことがある|ことが多い|推測|おそらく|示唆"
 
 # AIに選ばせる関係の種類（プロンプト src/prompts/tag_merge.txt と同じ並び）。
 # このうち TAG_AI_KEEP_KIND だけを同義の候補として辞書に残す

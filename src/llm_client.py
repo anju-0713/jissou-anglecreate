@@ -3,14 +3,19 @@
 - 応答は JSON（Structured Outputs）で受け取る。temperature=0
 - 同じ入力の応答は cache/ に保存し、再実行時は API を呼ばない（課金しない）
 - 失敗したら待って最大3回まで再試行。それでも失敗したら outputs/errors.csv に残して None を返す
+- レート制限（429）のときは、通常の再試行とは別に、長めに待って再試行する
+- chat_json_many で同時に config.LLM_WORKERS 件ずつ並列に送れる
 - 呼び出し回数とトークン数を数え、概算費用を出す
 """
 import hashlib
 import json
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 from src import config, io_utils
 
@@ -56,7 +61,9 @@ class LLMClient:
 
         self.step = step
         self.model = os.getenv("OPENAI_MODEL") or config.DEFAULT_MODEL
-        self.client = OpenAI()  # OPENAI_API_KEY は環境変数（.env）から読まれる
+        # OPENAI_API_KEY は環境変数（.env）から読まれる。再試行はこのクラスで行うのでライブラリ側は0回
+        self.client = OpenAI(max_retries=0)
+        self._lock = threading.Lock()  # 並列実行中に回数・トークンを正しく数えるため
         self.api_calls = 0
         self.cache_hits = 0
         self.input_tokens = 0
@@ -76,11 +83,15 @@ class LLMClient:
         """JSONで応答を受け取る。失敗したら None（errors.csv に記録済み）。"""
         path = self._cache_path(target, system, user, schema)
         if path.exists():
-            self.cache_hits += 1
+            with self._lock:
+                self.cache_hits += 1
             return json.loads(path.read_text(encoding="utf-8"))["result"]
 
+        from openai import RateLimitError
+
+        errors = rate_limits = 0
         last_error = ""
-        for attempt in range(1, config.LLM_MAX_RETRIES + 1):
+        while errors < config.LLM_MAX_RETRIES:
             try:
                 resp = self.client.chat.completions.create(
                     model=self.model,
@@ -90,21 +101,40 @@ class LLMClient:
                     response_format={"type": "json_schema", "json_schema": {
                         "name": "result", "strict": True, "schema": schema}},
                 )
-                self.api_calls += 1
-                self.input_tokens += resp.usage.prompt_tokens
-                self.output_tokens += resp.usage.completion_tokens
+                with self._lock:
+                    self.api_calls += 1
+                    self.input_tokens += resp.usage.prompt_tokens
+                    self.output_tokens += resp.usage.completion_tokens
                 result = json.loads(resp.choices[0].message.content)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(json.dumps({"target": target, "model": self.model, "result": result},
                                            ensure_ascii=False, indent=1), encoding="utf-8")
                 return result
-            except Exception as e:  # 通信エラー・JSON不正などすべて再試行の対象
+            except RateLimitError as e:
+                # レート制限：通常の再試行回数には数えず、長めに待つ
+                rate_limits += 1
+                last_error = f"RateLimitError: {e}"
+                if rate_limits > config.LLM_RATE_LIMIT_MAX_RETRIES:
+                    break
+                time.sleep(config.LLM_RATE_LIMIT_WAIT_SEC * rate_limits)
+            except Exception as e:  # 通信エラー・JSON不正などは通常の再試行
+                errors += 1
                 last_error = f"{type(e).__name__}: {e}"
-                print(f"  エラー（{attempt}回目）{target}: {last_error[:120]}")
-                if attempt < config.LLM_MAX_RETRIES:
-                    time.sleep(config.LLM_RETRY_WAIT_SEC * attempt)
-        io_utils.append_error(self.step, target, last_error)
+                tqdm.write(f"  エラー（{errors}回目）{target}: {last_error[:120]}")
+                if errors < config.LLM_MAX_RETRIES:
+                    time.sleep(config.LLM_RETRY_WAIT_SEC * errors)
+        with self._lock:
+            io_utils.append_error(self.step, target, last_error)
         return None
+
+    def chat_json_many(self, requests: list[tuple[str, str, str, dict]]) -> list[dict | None]:
+        """(target, system, user, schema) の一覧を並列に送る。結果は requests と同じ順番で返す。"""
+        results: list[dict | None] = [None] * len(requests)
+        with ThreadPoolExecutor(max_workers=config.LLM_WORKERS) as pool:
+            futures = {pool.submit(self.chat_json, *r): i for i, r in enumerate(requests)}
+            for f in tqdm(as_completed(futures), total=len(futures), desc=f"{self.step} API", unit="件"):
+                results[futures[f]] = f.result()
+        return results
 
     def summary_lines(self) -> list[str]:
         """実行ログ用の集計。"""

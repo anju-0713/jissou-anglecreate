@@ -64,8 +64,9 @@ def ai_candidates(client, targets: list[str], tag_list: list[str], counts: Count
     system = build_system_prompt(tag_list)
     valid = set(tag_list)
     rows, judgments, seen = [], [], set()
-    for target in targets:
-        result = client.chat_json(target, system, user_prompt(target), SCHEMA)
+    # 並列に送り、結果は targets の順番で処理する（順番が変わらないので結果も毎回同じ）
+    results = client.chat_json_many([(t, system, user_prompt(t), SCHEMA) for t in targets])
+    for target, result in zip(targets, results):
         if result is None:
             continue  # errors.csv に記録済み
         for m in result["matches"]:

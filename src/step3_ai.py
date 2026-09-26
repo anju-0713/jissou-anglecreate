@@ -131,7 +131,8 @@ def check_result(result: dict | None, source_text: str, original: dict[str, list
         flags += _check_keywords(label, [main, sub], result[f"{key}_matched_keywords"], masters)
         if main is None and not any(c["axis"] == label for c in candidates):
             flags.append(f"{label}：主カテゴリも新カテゴリ候補もない")
-        if main is not None and main not in original[label]:
+        # 元が「その他」の記事は、マスタのカテゴリに振り分けるのが再分類の目的なので、この理由は付けない
+        if main is not None and config.OTHER_LABEL not in original[label] and main not in original[label]:
             flags.append(f"{label}：元と主カテゴリが異なる")
 
     if candidates:

@@ -15,6 +15,17 @@ def _table(df: pd.DataFrame) -> list[str]:
     return lines
 
 
+def _sentences(metrics: pd.DataFrame) -> list[str]:
+    """提案書用の振り分けの文章（After(a)と、あれば After(b)）。"""
+    out = []
+    for _, r in metrics[metrics["指標"].str.endswith("振り分けの文章")].iterrows():
+        axis = r["指標"].split("：")[0]
+        out.append(f"- **{axis}**：{r['After(a)AI提案ベース(未確認)']}（AIの提案。未確認）")
+        if r["After(b)人の確認後"] != "（reviewedなし）":
+            out.append(f"  - 人の確認後：{r['After(b)人の確認後']}")
+    return out
+
+
 def write_summary(metrics: pd.DataFrame, rec: pd.DataFrame, n: int, path: Path) -> None:
     """指標表・計算方法・注記・新カテゴリ候補の一覧を書く。"""
     cand = rec[rec["新カテゴリ候補"] != ""][["article_id", "title", "新カテゴリ候補"]]
@@ -24,12 +35,13 @@ def write_summary(metrics: pd.DataFrame, rec: pd.DataFrame, n: int, path: Path) 
         "## 注記（先に読んでください）", "",
         "- **After(a)はAIの提案を確認していない状態の数値です。** 人が確認するまで「確定」ではありません。",
         "- **After(b)は、人が確認したファイルがある場合だけ出します。** 「（reviewedなし）」は、まだ確認ファイルがないことを示します。",
-        "- **カテゴリの After「主なし」は、元データの「その他」と同じ意味ではありません。** "
-        "AIには「その他」を選ばせず、当てはまるマスタのカテゴリがないときは主カテゴリを空にして新カテゴリ候補を出させています。",
+        "- **After の「その他」比率は出しません。** AIには「その他」を選ばせない設計のため、比率にすると実態より良く見えます。"
+        "代わりに、元が「その他」の記事が何に振り分けられたかを示します（下の「元の『その他』の振り分け」）。",
         "- **タグ整理の成果は「1回きりの割合」ではなく「表記ゆれを解消した組数」で見てください。** "
         "1回きりタグの大半は表記ゆれではなく、1記事にしか出ない固有名詞のタグです。統合でタグ種類（分母）が減るため、割合はむしろ少し上がります。",
-        "- 「要確認」は、AIの提案に人が目を通す対象です。件数が多いのは、元データが「その他」の記事は主カテゴリが必ず元と異なる扱いになるためなど、"
-        "判定を厳しめにしているためです。", "",
+        "- 「要確認」は、AIの提案に人が目を通す対象です。元が「その他」の記事には「元と主カテゴリが異なる」は付けていません"
+        "（マスタのカテゴリに振り分けるのが再分類の目的のため）。", "",
+        "## 元の「その他」の振り分け", "", *_sentences(metrics), "",
         "## 指標一覧", "", *_table(metrics), "",
         "## 計算方法", "",
         "- **Before**：`biz-journal_classified.csv` の業界・テーマ、`biz-journal_article_detail.csv` のタグ（元データそのまま）",

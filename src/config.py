@@ -186,6 +186,7 @@ SUMMARY_BODY_CHARS = 6000        # 要約のために渡す本文の最大文字
 SUMMARY_MIN_CHARS, SUMMARY_MAX_CHARS = 100, 200   # 要約の文字数がこの範囲外なら要確認
 SUMMARY_OUTPUT_TOKENS = 300      # 1回の応答トークン数の見込み（費用見積もり用）
 OUT_SUMMARIES = OUTPUTS_DIR / "06_summaries.csv"
+OUT_SUMMARY_REVIEW = OUTPUTS_DIR / "06_summaries_for_review.csv"   # 人が目で確認するための一覧
 OUT_DIFY_CSV = OUTPUTS_DIR / "dify_knowledge_articles.csv"
 OUT_DIFY_MD = OUTPUTS_DIR / "dify_knowledge_articles.md"
 OUT_DASH_ARTICLES = OUTPUTS_DIR / "dashboard_articles.csv"

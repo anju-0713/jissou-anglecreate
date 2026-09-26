@@ -140,6 +140,8 @@ def main(limit: int | None = None, no_api: bool = False) -> None:
     dify = build_dify(df, summaries, policy)
     io_utils.write_csv(dify, config.OUT_DIFY_CSV)
     io_utils.write_text(build_markdown(dify), config.OUT_DIFY_MD)
+    review = step6_summary.build_review(df, summaries)
+    io_utils.write_csv(review, config.OUT_SUMMARY_REVIEW)
     dash = step6_dashboard.build_articles(df)
     long = step6_dashboard.build_long(df)
     io_utils.write_csv(dash, config.OUT_DASH_ARTICLES)

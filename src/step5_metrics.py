@@ -9,85 +9,15 @@ After(b) ＝人の確認後。reviewed ファイルがあるときだけ出す
 実行方法（Git Bash、プロジェクトのルートで）:
     python -m src.step5_metrics
 """
-import re
 import time
 from collections import Counter
 
 import pandas as pd
 
 from src import config, io_utils, step2_report, step2_tag_dictionary as s2, step5_summary, tag_policy
+from src.step5_category import COL_A, COL_B, COL_V, NA, NO_REVIEW, category_metrics, pct as _pct, row as _row
 
 STEP = "step5_metrics"
-NA = "－"
-NO_REVIEW = "（reviewedなし）"
-COL_B, COL_A, COL_V = "Before(元データ)", "After(a)AI提案ベース(未確認)", "After(b)人の確認後"
-
-
-def _cats(raw: str) -> list[str]:
-    return [c for c in re.split(config.CATEGORY_SEP_REGEX, raw) if c]
-
-
-def _row(kind: str, name: str, before, a, b, note: str) -> dict:
-    return {"区分": kind, "指標": name, COL_B: before, COL_A: a, COL_V: b, "計算方法・注記": note}
-
-
-def _pct(n: int, total: int) -> float:
-    return round(n / total * 100, 1)
-
-
-def _reviewed_no_main(rec: pd.DataFrame) -> tuple[dict | None, int]:
-    """After(b)：軸ごとの「その他／主なし」の真偽列と、確認済み記事数。reviewed がなければ (None, 0)。"""
-    if not config.CATEGORY_REVIEWED_CSV.exists():
-        return None, 0
-    rv, _ = io_utils.read_csv_auto(config.CATEGORY_REVIEWED_CSV)
-    m = rec[["url", "提案_業界_主", "提案_テーマ_主"]].merge(
-        rv[["url", "確定_業界", "確定_テーマ"]], on="url", how="left").fillna("")
-    out = {}
-    for label in ["業界", "テーマ"]:
-        # 確定が記入された軸は確定値（「その他」なら該当）、未記入の軸は提案のまま（主なしなら該当）
-        out[label] = pd.Series([(f == config.OTHER_LABEL) if f != "" else p == ""
-                                for f, p in zip(m[f"確定_{label}"], m[f"提案_{label}_主"])])
-    out["両方"] = out["業界"] & out["テーマ"]
-    return out, int(((m["確定_業界"] != "") | (m["確定_テーマ"] != "")).sum())
-
-
-def category_metrics(art: pd.DataFrame, rec: pd.DataFrame) -> list[dict]:
-    """「その他」比率など、業界・テーマの指標。"""
-    n = len(art)
-    ind_b, thm_b = art["元_業界"].apply(_cats), art["元_テーマ"].apply(_cats)
-    before = {"業界": ind_b.apply(lambda x: config.OTHER_LABEL in x),
-              "テーマ": thm_b.apply(lambda x: config.OTHER_LABEL in x)}
-    before["両方"] = before["業界"] & before["テーマ"]
-    after = {"業界": rec["提案_業界_主"] == "", "テーマ": rec["提案_テーマ_主"] == ""}   # 主カテゴリなし
-    after["両方"] = after["業界"] & after["テーマ"]
-    ov, confirmed = _reviewed_no_main(rec)
-    no_v = NO_REVIEW if ov is None else NA
-
-    rows = []
-    for key, name in [("業界", "業界「その他」／主なし"), ("テーマ", "テーマ「その他」／主なし"),
-                      ("両方", "業界・テーマ両方「その他」／主なし")]:
-        b_n, a_n = int(before[key].sum()), int(after[key].sum())
-        v_n = int(ov[key].sum()) if ov else NO_REVIEW
-        rows += [
-            _row("カテゴリ", f"{name} 本数", b_n, a_n, v_n,
-                 "Before＝元データが「その他」の記事。After＝AIが主カテゴリを選べなかった記事（新カテゴリ候補あり・該当なし）"),
-            _row("カテゴリ", f"{name} 比率(%)", _pct(b_n, n), _pct(a_n, n), _pct(v_n, n) if ov else NO_REVIEW,
-                 f"本数 ÷ 全{n}本"),
-        ]
-    ind_a = rec[["提案_業界_主", "提案_業界_副"]].ne("").sum(axis=1)
-    thm_a = rec[["提案_テーマ_主", "提案_テーマ_副"]].ne("").sum(axis=1)
-    rows += [
-        _row("カテゴリ", "テーマ3つ以上の記事数", int((thm_b.apply(len) >= 3).sum()), int((thm_a >= 3).sum()), no_v,
-             "After は「主1つ＋副は最大1つ」の設計上、最大2つ"),
-        _row("カテゴリ", "業界3つ以上の記事数", int((ind_b.apply(len) >= 3).sum()), int((ind_a >= 3).sum()), no_v, "同上"),
-        _row("カテゴリ", "新カテゴリ候補あり記事数", NA, int((rec["新カテゴリ候補"] != "").sum()), no_v,
-             "AIが新カテゴリ案を出した記事"),
-        _row("カテゴリ", "要確認件数", NA, int((rec["要確認フラグ"] == "要確認").sum()), no_v,
-             "確信度<0.7／新カテゴリ候補あり／元と主カテゴリが異なる／照合語がマスタにない／根拠語が入力にない／推測表現 など"),
-        _row("カテゴリ", "確認済み記事数(人が確定を記入)", NA, 0, confirmed if ov else NO_REVIEW,
-             "reclassification_reviewed.csv の確定_業界・確定_テーマが記入された記事"),
-    ]
-    return rows
 
 
 def _normalized(articles: pd.DataFrame, mapping: dict, policy) -> tuple[pd.Series, dict]:

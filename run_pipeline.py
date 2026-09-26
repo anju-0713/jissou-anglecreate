@@ -8,13 +8,15 @@
 """
 import argparse
 
-from src import io_utils, step1_load_clean, step2_tag_dictionary, step3_reclassify
+from src import (io_utils, step1_load_clean, step2_tag_dictionary, step3_reclassify,
+                 step4_time_expressions)
 
 # ステップ番号 → 実行する関数（フェーズ2以降で追加していく）
 STEPS = {
     1: step1_load_clean.main,
     2: step2_tag_dictionary.main,
     3: step3_reclassify.main,
+    4: step4_time_expressions.main,
 }
 
 

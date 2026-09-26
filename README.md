@@ -121,3 +121,14 @@ python run_pipeline.py --step 3              # 全件
 - 当てはまらない場合だけ主を空にし、新カテゴリ候補を出す
 - 根拠語がタイトル・タグ・本文冒頭にあるかをコードで照合。推測表現の根拠は提案ごと除外
 - 出力：`outputs/03_reclassification.csv`（確定_業界・確定_テーマは人が記入）、試し実行は `outputs/03_trial10_report.md`
+
+## ステップ4：時点表現の検出（APIなし）
+
+```bash
+python run_pipeline.py --step 4
+```
+
+- 対象語は `src/config.py` の `TIME_EXPRESSIONS` に追加できる（相対年・予定/告知は要チェック、状態の語は参考）
+- 解釈案は公開日がある場合だけ（例：年内 → 2025年内）。「今年度」は4月始まりと仮定、「今期・来期」は決算期が不明なので空欄
+- 公開日がない記事（J-Moshi など）は解釈案を空欄にし、「★公開日欠損のため解釈不可」として先頭に並べる
+- 出力：`outputs/04_time_expressions.csv`（要更新は人が記入）

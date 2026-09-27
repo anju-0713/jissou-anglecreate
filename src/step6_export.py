@@ -93,6 +93,17 @@ def build_dify(df: pd.DataFrame, summaries: pd.DataFrame, policy) -> pd.DataFram
     return pd.DataFrame(rows)
 
 
+def _summary_state(note: str) -> str:
+    """備考から「要約の状態」の1行分を取り出す（CSVの備考欄と同じ内容）。"""
+    if "本文未取得" in note:
+        return "なし（本文未取得）"
+    if "要約未作成" in note:
+        return "なし（要約未作成）"
+    if "人が確認済み" in note:
+        return "人が確認済み"
+    return "AI作成（未確認）"
+
+
 def build_markdown(dify: pd.DataFrame) -> str:
     """1記事1ブロックのMarkdown（Dify取り込み用）。"""
     blocks = []
@@ -108,6 +119,7 @@ def build_markdown(dify: pd.DataFrame) -> str:
             f"- 分類の状態: {r['分類の状態']}",
             f"- 要約: {summary}",
             f"- 要約の根拠: {r['要約の根拠(本文/なし)']}",
+            f"- 要約の状態: {_summary_state(r['備考'])}",
         ]))
     return "\n\n---\n\n".join(blocks) + "\n"
 

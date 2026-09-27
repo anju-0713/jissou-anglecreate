@@ -59,6 +59,8 @@ def display_tags(tags: str, policy) -> str:
 def build_dify(df: pd.DataFrame, summaries: pd.DataFrame, policy) -> pd.DataFrame:
     """Dify用の表（タイトル, URL, 公開日, 正規化タグ, 業界, テーマ, 要約, 要約の根拠 ＋ 状態・備考）。"""
     summ = summaries.set_index("url") if len(summaries) else pd.DataFrame(columns=step6_summary.COLS).set_index("url")
+    reviewed = step6_summary.load_reviewed()
+    reviewed_ok = set(reviewed.loc[reviewed["確認(OK/NG)"].str.upper() == "OK", "url"]) if reviewed is not None else set()
     rows = []
     for _, r in df.iterrows():
         ind, ind_state = final_category(r, "業界")
@@ -71,6 +73,8 @@ def build_dify(df: pd.DataFrame, summaries: pd.DataFrame, policy) -> pd.DataFram
             notes.append("本文未取得")
         elif not summary:
             notes.append("要約未作成")
+        elif r["url"] in reviewed_ok:
+            notes.append("要約は人が確認済み")
         else:
             notes.append("要約はAI作成（未確認）")
             if s["要約_要確認理由"]:

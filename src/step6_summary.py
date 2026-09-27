@@ -68,12 +68,27 @@ def load_saved() -> pd.DataFrame:
     return pd.DataFrame(columns=COLS)
 
 
+def load_reviewed() -> pd.DataFrame | None:
+    """人が確認した結果（data/manual/summary_reviewed.csv）。なければ None。"""
+    if not config.SUMMARY_REVIEWED_CSV.exists():
+        return None
+    return io_utils.read_csv_auto(config.SUMMARY_REVIEWED_CSV)[0]
+
+
 def build_review(df: pd.DataFrame, summaries: pd.DataFrame) -> pd.DataFrame:
-    """人が目で確認するための一覧（記事名・要約・要確認の理由）。確認の記入欄つき。"""
+    """人が目で確認するための一覧（記事名・要約・要確認の理由）。確認の記入欄つき。
+
+    data/manual/summary_reviewed.csv があれば、その確認結果・メモを反映する。
+    """
     m = summaries.merge(df[["url", "title", "date"]], on="url", how="left")
+    ok, memo = pd.Series([""] * len(m)), pd.Series([""] * len(m))
+    reviewed = load_reviewed()
+    if reviewed is not None:
+        r = m[["url"]].merge(reviewed, on="url", how="left").fillna("")
+        ok, memo = r["確認(OK/NG)"], r["メモ"]
     return pd.DataFrame({
         "記事名": m["title"], "URL": m["url"], "公開日": m["date"],
         "要約": m["要約"], "文字数": m["要約"].str.len(),
         "要確認の理由": m["要約_要確認理由"].replace("", "（自動チェックで指摘なし）"),
-        "確認(OK/NG・人が記入)": "", "修正後の要約・メモ(人が記入)": "",
+        "確認(OK/NG・人が記入)": ok, "修正後の要約・メモ(人が記入)": memo,
     })

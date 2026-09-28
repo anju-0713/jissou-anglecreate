@@ -193,6 +193,11 @@ OUT_DIFY_MD = OUTPUTS_DIR / "dify_knowledge_articles.md"
 OUT_DASH_ARTICLES = OUTPUTS_DIR / "dashboard_articles.csv"
 OUT_DASH_LONG = OUTPUTS_DIR / "dashboard_category_long.csv"
 
+# AIO対応率チェック（フェーズ①の出力だけで集計。OpenAI APIは使わない）
+AIO_TAG_MIN_COUNT = 2   # 「一般タグ」とみなす最少出現回数（dify3_tags.txt と同じ基準）
+OUT_AIO_ARTICLES = OUTPUTS_DIR / "aio_check_articles.csv"
+OUT_AIO_SUMMARY = OUTPUTS_DIR / "aio_check_summary.csv"
+
 # ステップ5：Before/After 指標
 OUT_METRICS_CSV = OUTPUTS_DIR / "05_metrics_before_after.csv"
 OUT_METRICS_MD = OUTPUTS_DIR / "05_metrics_summary.md"

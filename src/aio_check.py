@@ -120,6 +120,24 @@ def build_summary(art: pd.DataFrame, n: int) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def build_chart(summary: pd.DataFrame) -> pd.DataFrame:
+    """Looker Studio用の縦長CSV（項目, 前後, 対応率）。前後どちらも出せる4項目だけ、短い項目名で。"""
+    short_names = {
+        "業界が「その他」以外": "業界",
+        "テーマが「その他」以外": "テーマ",
+        f"2回以上使われるタグが1つ以上（{config.AIO_TAG_MIN_COUNT}回以上）": "タグ",
+        "基本対応済み（上の3項目すべて）": "基本対応済み",
+    }
+    rows = []
+    for _, r in summary.iterrows():
+        if r["項目"] not in short_names:
+            continue
+        name = short_names[r["項目"]]
+        rows.append({"項目": name, "前後": "前", "対応率": r["前_対応率(%)"]})
+        rows.append({"項目": name, "前後": "後", "対応率": r["後_対応率(%)"]})
+    return pd.DataFrame(rows)
+
+
 def main(limit: int | None = None, no_api: bool = False) -> None:
     io_utils.setup_console()
     start = time.time()
@@ -129,10 +147,13 @@ def main(limit: int | None = None, no_api: bool = False) -> None:
     io_utils.write_csv(art, config.OUT_AIO_ARTICLES)
     summary = build_summary(art, len(art))
     io_utils.write_csv(summary, config.OUT_AIO_SUMMARY)
+    chart = build_chart(summary)
+    io_utils.write_csv(chart, config.OUT_AIO_CHART)
 
     with pd.option_context("display.max_colwidth", 60, "display.width", 220):
         print(summary.drop(columns="注記").to_string(index=False))
-    print(f"\n出力: {config.OUT_AIO_ARTICLES.name}（{len(art)} 行）, {config.OUT_AIO_SUMMARY.name}（{len(summary)} 行）")
+    print(f"\n出力: {config.OUT_AIO_ARTICLES.name}（{len(art)} 行）, {config.OUT_AIO_SUMMARY.name}（{len(summary)} 行）,"
+          f" {config.OUT_AIO_CHART.name}（{len(chart)} 行）")
     io_utils.append_run_log(STEP, [
         f"対象 {len(art)} 本 / 基本対応済み 前{int(art['基本対応済み_前'].sum())}本→後{int(art['基本対応済み_後'].sum())}本",
         f"所要時間: {time.time() - start:.1f} 秒 / API呼び出し: 0 回 / 概算費用: 0 円",

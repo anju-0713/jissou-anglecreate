@@ -197,6 +197,7 @@ OUT_DASH_LONG = OUTPUTS_DIR / "dashboard_category_long.csv"
 AIO_TAG_MIN_COUNT = 2   # 「一般タグ」とみなす最少出現回数（dify3_tags.txt と同じ基準）
 OUT_AIO_ARTICLES = OUTPUTS_DIR / "aio_check_articles.csv"
 OUT_AIO_SUMMARY = OUTPUTS_DIR / "aio_check_summary.csv"
+OUT_AIO_CHART = OUTPUTS_DIR / "dashboard_aio_chart.csv"   # Looker Studio用（縦長）
 
 # ステップ5：Before/After 指標
 OUT_METRICS_CSV = OUTPUTS_DIR / "05_metrics_before_after.csv"
